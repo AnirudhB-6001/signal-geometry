@@ -1,0 +1,42 @@
+# Python cache and compiled files
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+
+# Virtual environment
+venv/
+env/
+
+# Jupyter Notebook checkpoints (in case you use any)
+.ipynb_checkpoints/
+
+# VSCode / PyCharm
+.vscode/
+.idea/
+
+# OS / Desktop clutter
+.DS_Store
+Thumbs.db
+
+# Logs and debug artifacts
+*.log
+
+# Matplotlib and plot outputs
+*.png
+*.pdf
+*.svg
+
+# Data exports
+*.csv
+*.json
+
+# Reddit credentials if stored locally (you don't right now, but future proofing)
+*.env
+.env
+
+# Backup or temp files
+*.bak
+*.tmp
+*.swp
