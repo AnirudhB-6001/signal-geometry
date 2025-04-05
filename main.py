@@ -1,94 +1,69 @@
-# main.py
+# dashboard.py
 
-from src.seed_nodes import seed_nodes as nodes
-from src.graph_utils import (
-    build_graph,
-    visualize_graph,
-    compute_power_index,
-    calculate_truth_drift,
-    compute_narrative_stability_index
-)
-from src.export_utils import (
-    export_signals_to_csv,
-    export_nodes_to_csv,
-    export_graph_to_json
-)
-from src.signal_collector import collect_signals_from_reddit
-from src.visual_stats import (
-    plot_avg_entropy_by_subreddit,
-    plot_avg_nsi_by_subreddit
-)
-from src.recursion_utils import analyze_recursions, detect_recursion
-from src.contradiction_utils import analyze_contradictions
-
-import networkx as nx
+import streamlit as st
+import pandas as pd
 import matplotlib.pyplot as plt
-from datetime import datetime
+import seaborn as sns
 
-# 0. Prompt user for subreddits
-input_str = input("Enter subreddits to scan (comma-separated): ")
-subreddits_to_scan = [s.strip() for s in input_str.split(",") if s.strip()]
-if not subreddits_to_scan:
-    print("No subreddits provided. Exiting.")
-    exit()
+st.set_page_config(page_title="Signal Geometry Dashboard", layout="wide")
 
-# 1. Collect signals
-signals = collect_signals_from_reddit(subreddits=subreddits_to_scan, limit=20)
+st.title("📊 Signal Geometry — Live Dashboard")
+st.markdown("A visual exploration of entropy, influence, and recursion dynamics.")
 
-# 2. Build influence graph
-graph = build_graph(nodes, signals)
+# Load data
+signals_df = pd.read_csv("signals.csv")
+nodes_df = pd.read_csv("nodes.csv")
 
-# 3. Print graph info
-print("Nodes:", graph.nodes(data=True))
-print("Edges:", graph.edges(data=True))
+# Section 1: Summary Stats
+st.header("🔍 Quick Stats")
+col1, col2, col3 = st.columns(3)
 
-# 4. Detect feedback loops
-def detect_loops(graph):
-    loops = list(nx.simple_cycles(graph))
-    print("\nFeedback loops detected:")
-    for loop in sorted(loops, key=lambda l: l[0]):
-        print(" → ".join(loop))
+with col1:
+    st.metric("Total Signals", len(signals_df))
+with col2:
+    st.metric("Avg. Entropy", f"{signals_df['entropy'].mean():.2f}")
+with col3:
+    st.metric("Total Nodes", len(nodes_df))
 
-detect_loops(graph)
+# Section 2: Entropy Over Time
+st.header("📈 Entropy Over Time")
+fig1, ax1 = plt.subplots(figsize=(10, 4))
+signals_df["timestamp"] = pd.to_datetime(signals_df["timestamp"])
+signals_df = signals_df.sort_values("timestamp")
+ax1.plot(signals_df["timestamp"], signals_df["entropy"], marker="o", linestyle="-")
+ax1.set_xlabel("Time")
+ax1.set_ylabel("Entropy")
+ax1.grid(True)
+st.pyplot(fig1)
 
-# 5a. Recursion detection ✅
-recursive_nodes = detect_recursion(signals)
-analyze_recursions(signals)
+# Section 3: Entropy & NSI by Subreddit
+st.header("🧭 Subreddit Patterns")
 
-# 5b. Contradiction detection ✅
-contradictory_pairs = analyze_contradictions(signals)
+col4, col5 = st.columns(2)
+with col4:
+    st.subheader("Avg. Entropy by Subreddit")
+    fig2, ax2 = plt.subplots()
+    sns.barplot(
+        data=signals_df,
+        x="avg_entropy_by_subreddit" if "avg_entropy_by_subreddit" in signals_df.columns else "subreddit",
+        y="entropy",
+        ax=ax2
+    )
+    plt.xticks(rotation=45)
+    st.pyplot(fig2)
 
-# 6. Visualize graph with enhanced coloring
-visualize_graph(graph, recursion_signals=recursive_nodes, contradiction_pairs=contradictory_pairs)
+with col5:
+    st.subheader("Avg. NSI by Subreddit")
+    if "nsi" in signals_df.columns:
+        fig3, ax3 = plt.subplots()
+        sns.barplot(data=signals_df, x="subreddit", y="nsi", ax=ax3)
+        plt.xticks(rotation=45)
+        st.pyplot(fig3)
+    else:
+        st.warning("NSI column not found in signals.csv")
 
-# 7. Plot entropy over time
-def plot_entropy_over_time(signals):
-    signals_sorted = sorted(signals, key=lambda s: s.timestamp)
-    times = [datetime.strptime(s.timestamp, "%Y-%m-%dT%H:%M:%SZ") for s in signals_sorted]
-    entropy_vals = [s.entropy for s in signals_sorted]
+# Section 4: Node Influence Table
+st.header("🧠 Influence Nodes Table")
+st.dataframe(nodes_df.sort_values("power_score", ascending=False))
 
-    plt.figure(figsize=(8, 4))
-    plt.plot(times, entropy_vals, marker='o', linestyle='-', color='blue')
-    plt.title("Signal Entropy Over Time")
-    plt.xlabel("Timestamp")
-    plt.ylabel("Entropy")
-    plt.grid(True)
-    plt.tight_layout()
-    plt.savefig("entropy_over_time.png")
-    print("Entropy trend saved as entropy_over_time.png")
-
-plot_entropy_over_time(signals)
-
-# 8. Power & narrative analysis
-power_scores = compute_power_index(graph)
-calculate_truth_drift(signals)
-compute_narrative_stability_index(graph, signals, power_scores)
-
-# 9. Subreddit profile charts
-plot_avg_entropy_by_subreddit(signals)
-plot_avg_nsi_by_subreddit(signals)
-
-# 10. Export outputs
-export_signals_to_csv(signals)
-export_nodes_to_csv(graph, power_scores)
-export_graph_to_json(graph)
+st.caption("All visualizations are generated from your local outputs. Refresh the dashboard after each run.")
