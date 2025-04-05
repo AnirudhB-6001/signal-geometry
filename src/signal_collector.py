@@ -43,7 +43,8 @@ def collect_signals_from_reddit(subreddits: List[str], limit=5) -> List[Signal]:
                 entropy=entropy,
                 velocity=velocity,
                 impact=round(min(1.0, (post.upvote_ratio or 0.8)), 2),
-                route=["reddit_thread", "user_1", "user_2", "elon_musk"]
+                route=["reddit_thread", "user_1", "user_2", "elon_musk"],
+                subreddit=subreddit  # ✅ NEW
             )
             signals.append(signal)
 
