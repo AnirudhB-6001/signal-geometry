@@ -1,3 +1,4 @@
+
 # src/graph_utils.py
 
 import networkx as nx
@@ -5,37 +6,36 @@ from typing import List
 from src.model import Node, Signal
 import matplotlib.pyplot as plt
 
-
 def build_graph(nodes: List[Node], signals: List[Signal]) -> nx.DiGraph:
     G = nx.DiGraph()
-
-    # Add initial nodes with metadata
     for node in nodes:
         G.add_node(node.id, type=node.type, **(node.metadata or {}))
 
-    # Add signal paths as directed edges
     for signal in signals:
         for i in range(len(signal.route) - 1):
             source = signal.route[i]
             target = signal.route[i + 1]
 
-            # Ensure nodes exist
             if source not in G.nodes:
                 G.add_node(source, type='router')
             if target not in G.nodes:
                 G.add_node(target, type='router')
 
-            # Attach signal to the originating node
             if i == 0:
-                G.nodes[source]["signal"] = signal
+                G.nodes[source]["signal"] = {
+                     "id": signal.id,
+                     "entropy": signal.entropy,
+                     "title": getattr(signal, "title", ""),
+                     "subreddit": getattr(signal, "subreddit", ""),
+                     }
 
             G.add_edge(source, target,
                        signal_id=signal.id,
                        velocity=signal.velocity,
-                       entropy=signal.entropy)
+                       entropy=signal.entropy,
+                       is_recursive=signal.is_recursive if hasattr(signal, "is_recursive") else False)
 
     return G
-
 
 def visualize_graph(G, recursion_signals=None, contradiction_pairs=None):
     import matplotlib.patches as mpatches
@@ -49,34 +49,31 @@ def visualize_graph(G, recursion_signals=None, contradiction_pairs=None):
         signal = data.get("signal")
         is_recursive = recursion_signals and node in recursion_signals
 
-        # Prioritize contradiction highlighting
-        if signal and getattr(signal, "is_contradiction", False):
-            color = "red"
-        elif node_type == "influencer":
-            color = "orange"
-        elif node_type == "institution":
-            color = "skyblue"
-        elif node_type == "platform":
-            color = "lightgreen"
-        elif node_type == "machine":
-            color = "violet"
-        else:
-            color = "gray"
+        color = (
+            "orange" if node_type == "influencer" else
+            "skyblue" if node_type == "institution" else
+            "lightgreen" if node_type == "platform" else
+            "violet" if node_type == "machine" else
+            "gray"
+        )
 
         node_colors.append(color)
         node_borders.append("black" if is_recursive else "none")
 
     edge_weights = []
     edge_colors = []
-    for _, _, data in G.edges(data=True):
+    for u, v, data in G.edges(data=True):
         edge_weights.append(data["velocity"] * 3)
         entropy = data.get("entropy", 0.5)
-        if entropy < 0.3:
-            edge_colors.append("green")
-        elif entropy < 0.7:
-            edge_colors.append("orange")
-        else:
-            edge_colors.append("red")
+        is_recursive = data.get("is_recursive", False)
+
+        edge_color = (
+            "purple" if is_recursive else
+            "green" if entropy < 0.3 else
+            "orange" if entropy < 0.7 else
+            "red"
+        )
+        edge_colors.append(edge_color)
 
     plt.figure(figsize=(10, 7))
     nx.draw_networkx_nodes(G, pos,
@@ -96,19 +93,18 @@ def visualize_graph(G, recursion_signals=None, contradiction_pairs=None):
         mpatches.Patch(color="lightgreen", label="Platform"),
         mpatches.Patch(color="violet", label="Machine"),
         mpatches.Patch(color="gray", label="Router"),
-        mpatches.Patch(facecolor="white", edgecolor="black", label="Recursive Signal Source"),
-        mpatches.Patch(color="red", label="Contradictory Signal Source"),
+        mpatches.Patch(facecolor="white", edgecolor="black", label="Recursive Node"),
+        mpatches.Patch(color="purple", label="Recursive Edge"),
         mpatches.Patch(color="green", label="Low Entropy Edge"),
         mpatches.Patch(color="orange", label="Mid Entropy Edge"),
         mpatches.Patch(color="red", label="High Entropy Edge"),
     ]
     plt.legend(handles=legend, loc="upper left")
-    plt.title("Signal Geometry: Influence Graph (Contradictions + Recursion)")
+    plt.title("Signal Geometry: Influence Graph (Recursion Enhanced)")
     plt.axis("off")
     plt.tight_layout()
     plt.savefig("influence_graph.png")
-    print("Graph saved as influence_graph.png (recursion + contradiction enhanced)")
-
+    print("Graph saved as influence_graph.png (recursion enhanced)")
 
 def compute_power_index(graph):
     import operator
@@ -136,7 +132,6 @@ def compute_power_index(graph):
 
     return scores
 
-
 def calculate_truth_drift(signals):
     print("\nTruth Drift Report:")
 
@@ -147,7 +142,6 @@ def calculate_truth_drift(signals):
         drift = round(entropy * (route_len - 1) * velocity, 4)
         signal.drift_score = drift
         print(f"- {signal.id}: Drift = {drift} | Entropy = {entropy} | Route Length = {route_len}")
-
 
 def compute_narrative_stability_index(graph, signals, power_scores):
     print("\nNarrative Stability Index (NSI):")

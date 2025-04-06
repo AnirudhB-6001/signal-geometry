@@ -1,17 +1,16 @@
-# dashboard.py
-
 import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
 
 st.set_page_config(layout="wide")
+
 st.title("🧠 Signal Geometry Dashboard")
 
 # Section: Signal Data Table
 st.header("📄 Raw Signal Data")
 try:
     df = pd.read_csv("signals.csv")
-    st.dataframe(df)
+    st.dataframe(df[["id", "title", "subreddit", "entropy", "nsi_score", "recursion_score"]])
 except FileNotFoundError:
     st.warning("signals.csv not found. Please run main.py first.")
 

@@ -1,7 +1,5 @@
-# src/model.py
-
-from dataclasses import dataclass
-from typing import List, Dict, Optional
+from dataclasses import dataclass, field
+from typing import List, Optional, Dict
 
 @dataclass
 class Node:
@@ -13,14 +11,16 @@ class Node:
 class Signal:
     id: str
     content: str
-    source: str                # The originating node ID (e.g., subreddit, 'newsapi', etc.)
-    timestamp: str             # ISO format
+    title: str
+    source: str
+    timestamp: str
     entropy: float
     velocity: float
     impact: float
-    route: List[str]           # Ordered list of node IDs the signal passed through
-    subreddit: Optional[str] = None  # Source subreddit, if applicable
 
-    # Optional fields used in recursion/contradiction analysis
+    # Optional fields to handle routing + platform specifics
+    node: Optional[str] = None
+    route: Optional[List[str]] = field(default_factory=list)
+    subreddit: Optional[str] = None
     is_recursive: bool = False
     recursive_depth: int = 0
