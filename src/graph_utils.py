@@ -5,6 +5,7 @@ import networkx as nx
 from typing import List
 from src.model import Node, Signal
 import matplotlib.pyplot as plt
+import matplotlib.patches as mpatches
 
 def build_graph(nodes: List[Node], signals: List[Signal]) -> nx.DiGraph:
     G = nx.DiGraph()
@@ -152,3 +153,93 @@ def compute_narrative_stability_index(graph, signals, power_scores):
         nsi = entropy_term * drift_term * power_term
         signal.nsi_score = round(nsi * 10, 4)
         print(f"- {signal.id}: NSI = {signal.nsi_score} | Source = {signal.source}")
+
+def visualize_structured_graph(G):
+    import matplotlib.pyplot as plt
+    import matplotlib.patches as mpatches
+    from collections import defaultdict
+
+    # Define y-layer positions
+    layer_y = {
+        "influencer": 2,
+        "institution": 1.5,
+        "platform": 1,
+        "machine": 0.5,
+        "router": 0
+    }
+
+    # Group nodes by type
+    type_groups = defaultdict(list)
+    for node, data in G.nodes(data=True):
+        node_type = data.get("type", "router")
+        type_groups[node_type].append(node)
+
+    # Assign spaced horizontal x-positions
+    pos = {}
+    for node_type, y in layer_y.items():
+        nodes = type_groups.get(node_type, [])
+        count = len(nodes)
+        for i, node in enumerate(nodes):
+            x = i - count / 2  # center horizontally
+            pos[node] = (x, y)
+
+    # Node styling
+    node_colors = []
+    node_borders = []
+    for node, data in G.nodes(data=True):
+        node_type = data.get("type", "router")
+        color = (
+            "orange" if node_type == "influencer" else
+            "skyblue" if node_type == "institution" else
+            "lightgreen" if node_type == "platform" else
+            "violet" if node_type == "machine" else
+            "gray"
+        )
+        node_colors.append(color)
+        node_borders.append("black")
+
+    # Edge weights and colors
+    edge_weights = [data.get("velocity", 0.5) * 3 for _, _, data in G.edges(data=True)]
+    edge_colors = []
+    for _, _, data in G.edges(data=True):
+        entropy = data.get("entropy", 0.5)
+        is_recursive = data.get("is_recursive", False)
+        if is_recursive:
+            edge_colors.append("purple")
+        elif entropy < 0.3:
+            edge_colors.append("green")
+        elif entropy < 0.7:
+            edge_colors.append("orange")
+        else:
+            edge_colors.append("red")
+
+    # Plotting
+    plt.figure(figsize=(12, 8))
+    nx.draw_networkx_nodes(G, pos,
+                           node_color=node_colors,
+                           node_size=800,
+                           edgecolors=node_borders,
+                           linewidths=2)
+    nx.draw_networkx_edges(G, pos,
+                           width=edge_weights,
+                           edge_color=edge_colors,
+                           arrows=True)
+    nx.draw_networkx_labels(G, pos, font_size=9, font_family="sans-serif")
+
+    legend = [
+        mpatches.Patch(color="orange", label="Influencer"),
+        mpatches.Patch(color="skyblue", label="Institution"),
+        mpatches.Patch(color="lightgreen", label="Platform"),
+        mpatches.Patch(color="violet", label="Machine"),
+        mpatches.Patch(color="gray", label="Router"),
+        mpatches.Patch(color="purple", label="Recursive Edge"),
+        mpatches.Patch(color="green", label="Low Entropy Edge"),
+        mpatches.Patch(color="orange", label="Mid Entropy Edge"),
+        mpatches.Patch(color="red", label="High Entropy Edge"),
+    ]
+    plt.legend(handles=legend, loc="upper left")
+    plt.title("Structured Signal Propagation Graph")
+    plt.axis("off")
+    plt.tight_layout()
+    plt.savefig("influence_graph_structured.png")
+    print("📌 Structured graph saved as influence_graph_structured.png")

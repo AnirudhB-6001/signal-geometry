@@ -1,8 +1,11 @@
+# main.py
+
 from src.news_collector import collect_signals_from_news
 from src.seed_nodes import seed_nodes as nodes
 from src.graph_utils import (
     build_graph,
     visualize_graph,
+    visualize_structured_graph,
     compute_power_index,
     calculate_truth_drift,
     compute_narrative_stability_index
@@ -29,35 +32,41 @@ from datetime import datetime
 # 0. Prompt user for subreddits
 input_str = input("Enter subreddits to scan (comma-separated): ")
 subreddits_to_scan = [s.strip() for s in input_str.split(",") if s.strip()]
-if not subreddits_to_scan:
-    print("No subreddits provided. Exiting.")
-    exit()
 
 # 1. Collect signals
-print("\n🔍 Collecting signals from Reddit...")
-reddit_signals = collect_signals_from_reddit(subreddits=subreddits_to_scan, limit=20)
+reddit_signals = []
+if subreddits_to_scan:
+    try:
+        print("\n🔍 Collecting signals from Reddit...")
+        reddit_signals = collect_signals_from_reddit(subreddits=subreddits_to_scan, limit=20)
+    except Exception as e:
+        print(f"⚠️ Reddit signal collection failed: {e}")
+else:
+    print("⚠️ No subreddits provided. Skipping Reddit.")
 
-# 2.5 Collect signals from NewsAPI (for selected topics)
+# 2. Collect from NewsAPI
 input_topics = input("Enter news topics to scan (comma-separated, e.g., Ukraine, AI): ")
 news_topics = [t.strip() for t in input_topics.split(",") if t.strip()]
 news_signals = collect_signals_from_news(news_topics, limit=10)
 
+# 3. Twitter
 print("🔍 Collecting signals from Twitter...")
 twitter_signals = collect_signals_from_twitter(limit=10)
 
-# ✅ 2. Merge all signals
+# ✅ 4. Merge all
 signals = reddit_signals + twitter_signals + news_signals
 print(f"✅ Total signals collected: {len(signals)}")
+if not signals:
+    print("❌ No signals collected. Exiting.")
+    exit()
 
-# 3. Build influence graph
+# 5. Build graph
 graph = build_graph(nodes, signals)
 print("✅ Influence graph constructed.")
-
-# 4. Print graph info
 print("📊 Nodes:", graph.nodes(data=True))
 print("📊 Edges:", graph.edges(data=True))
 
-# 5. Detect feedback loops
+# 6. Detect feedback loops
 def detect_loops(graph):
     loops = list(nx.simple_cycles(graph))
     print("\n🔁 Feedback loops detected:")
@@ -66,46 +75,50 @@ def detect_loops(graph):
 
 detect_loops(graph)
 
-# 6. Recursion detection
+# 7. Recursion detection
 recursive_nodes = detect_recursion(signals)
 analyze_recursions(signals)
 
-# 7. Visualize graph with recursion coloring
+# 8. Graph visualizations
 visualize_graph(graph, recursion_signals=recursive_nodes)
+visualize_structured_graph(graph)
 
-# 8. Plot entropy over time
+# 9. Entropy chart
 def plot_entropy_over_time(signals):
-    signals_sorted = sorted(signals, key=lambda s: s.timestamp)
-    times = [datetime.strptime(s.timestamp, "%Y-%m-%dT%H:%M:%SZ") for s in signals_sorted]
-    entropy_vals = [s.entropy for s in signals_sorted]
+    try:
+        signals_sorted = sorted(signals, key=lambda s: s.timestamp)
+        times = [datetime.strptime(s.timestamp, "%Y-%m-%dT%H:%M:%SZ") for s in signals_sorted]
+        entropy_vals = [s.entropy for s in signals_sorted]
 
-    plt.figure(figsize=(8, 4))
-    plt.plot(times, entropy_vals, marker='o', linestyle='-', color='blue')
-    plt.title("Signal Entropy Over Time")
-    plt.xlabel("Timestamp")
-    plt.ylabel("Entropy")
-    plt.grid(True)
-    plt.tight_layout()
-    plt.savefig("entropy_over_time.png")
-    print("📈 Entropy trend saved as entropy_over_time.png")
+        plt.figure(figsize=(8, 4))
+        plt.plot(times, entropy_vals, marker='o', linestyle='-', color='blue')
+        plt.title("Signal Entropy Over Time")
+        plt.xlabel("Timestamp")
+        plt.ylabel("Entropy")
+        plt.grid(True)
+        plt.tight_layout()
+        plt.savefig("entropy_over_time.png")
+        print("📈 Entropy trend saved as entropy_over_time.png")
+    except Exception as e:
+        print(f"⚠️ Failed to plot entropy over time: {e}")
 
 plot_entropy_over_time(signals)
 
-# 9. Power & narrative analysis
+# 10. Power & narrative analysis
 power_scores = compute_power_index(graph)
 calculate_truth_drift(signals)
 compute_narrative_stability_index(graph, signals, power_scores)
 
-# 10. Subreddit profile charts
+# 11. Subreddit profile charts
 plot_avg_entropy_by_subreddit(signals)
 plot_avg_nsi_by_subreddit(signals)
 
-# 11. Export core outputs
+# 12. Export outputs
 export_signals_to_csv(signals)
 export_nodes_to_csv(graph, power_scores)
 export_graph_to_json(graph)
 
-# 12. Simulate signal propagation and export timeline
+# 13. Propagation simulation
 timeline = simulate_propagation(signals)
 export_propagation_timeline(timeline)
 print("✅ Propagation timeline exported to timeline.csv")

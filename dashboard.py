@@ -161,3 +161,5 @@ with col3:
 with col4:
     st.subheader("Influence Graph")
     st.image("influence_graph.png")
+    st.subheader("Structured Influence Graph")
+    st.image("influence_graph_structured.png")
