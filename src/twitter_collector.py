@@ -22,7 +22,7 @@ def estimate_velocity(likes: int, hours_old: float) -> float:
 def collect_signals_from_twitter(limit=10):
     signals = []
 
-    # Prompt user for which handles to include
+    # Prompt user for handles
     input_str = input("\nEnter up to 3 Twitter nodes to fetch (comma-separated, e.g., elon_musk, trump, bbc): ")
     selected_nodes = [s.strip().lower() for s in input_str.split(",") if s.strip()][:3]
 
@@ -58,6 +58,13 @@ def collect_signals_from_twitter(limit=10):
                 entropy = estimate_entropy(retweets, likes)
                 velocity = estimate_velocity(likes, hours_old)
 
+                # Build route (seed → user) only if valid seed node
+                route = [node_id]
+                seed_node = node_id
+
+                # Optional: simulate one router hop if needed (commented out)
+                # route.append(f"user_{random.randint(1, 5)}")
+
                 signal = Signal(
                     id=f"{node_id}_{tweet.id}",
                     content=tweet.text,
@@ -67,8 +74,14 @@ def collect_signals_from_twitter(limit=10):
                     entropy=entropy,
                     velocity=velocity,
                     impact=round(min(1.0, (likes + 1) / 1000.0), 2),
-                    node=node_id
+                    node=node_id,
+                    route=route,
+                    seed_node=seed_node
                 )
+
+                if len(route) < 2:
+                    print(f"⚠️ Incomplete route for signal {signal.id}. Downstream nodes missing. Skipping extra hops.")
+
                 signals.append(signal)
 
         except Exception as e:

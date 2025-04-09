@@ -63,3 +63,13 @@ def export_propagation_timeline(timeline: List[Dict], filename="timeline.csv"):
         for row in timeline:
             writer.writerow(row)
     print(f"✅ Propagation timeline exported to {filename}")
+
+import json
+
+def export_co_occurrence_map(co_occurrence_map, filepath="co_occurrence_map.json"):
+    try:
+        with open(filepath, "w") as f:
+            json.dump(co_occurrence_map, f, indent=2)
+        print(f"✅ Co-occurrence map exported to {filepath}")
+    except Exception as e:
+        print(f"❌ Failed to export co-occurrence map: {e}")

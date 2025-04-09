@@ -51,6 +51,12 @@ def collect_signals_from_news(topics: list, limit=10):
                 entropy = estimate_entropy(content)
                 velocity = estimate_velocity(published_at)
 
+                # Temporary route: only includes AI node as source
+                route = ["news_aggregator_ai"]
+
+                if len(route) < 2:
+                    print(f"⚠️ Incomplete route for signal {topic}_{i}. Downstream nodes missing. Skipping extra hops.")
+
                 signal = Signal(
                     id=f"{topic}_{i}",
                     content=content,
@@ -60,7 +66,10 @@ def collect_signals_from_news(topics: list, limit=10):
                     entropy=entropy,
                     velocity=velocity,
                     impact=round(entropy + velocity, 2),
-                    node="news_aggregator_ai"
+                    node="news_aggregator_ai",
+                    route=route,
+                    subreddit=topic,  # reuse this field to track original topic
+                    is_recursive=False
                 )
                 signals.append(signal)
 

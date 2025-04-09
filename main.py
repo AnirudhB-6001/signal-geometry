@@ -8,13 +8,18 @@ from src.graph_utils import (
     visualize_structured_graph,
     compute_power_index,
     calculate_truth_drift,
-    compute_narrative_stability_index
+    compute_narrative_stability_index,
+    resolve_missing_route,
+    load_co_occurrence_map,
+    detect_cross_platform_bridges,
+    reinforce_cross_platform_bridges  # ✅ NEW
 )
 from src.export_utils import (
     export_signals_to_csv,
     export_nodes_to_csv,
     export_graph_to_json,
-    export_propagation_timeline
+    export_propagation_timeline,
+    export_co_occurrence_map
 )
 from src.signal_collector import collect_signals_from_reddit
 from src.twitter_collector import collect_signals_from_twitter
@@ -24,10 +29,12 @@ from src.visual_stats import (
 )
 from src.recursion_utils import analyze_recursions, detect_recursion
 from src.simulator import simulate_propagation
+from src.co_occurrence import track_co_occurrence
 
 import networkx as nx
 import matplotlib.pyplot as plt
 from datetime import datetime
+import json
 
 # 0. Prompt user for subreddits
 input_str = input("Enter subreddits to scan (comma-separated): ")
@@ -59,6 +66,30 @@ print(f"✅ Total signals collected: {len(signals)}")
 if not signals:
     print("❌ No signals collected. Exiting.")
     exit()
+
+# 4b. Track co-occurrence
+print("🔎 Tracking co-occurrence relationships...")
+co_occurrence_map = track_co_occurrence(signals)
+export_co_occurrence_map(co_occurrence_map)
+
+# ✅ Save updated map to JSON for memory-based enrichment
+with open("co_occurrence_map.json", "w") as f:
+    json.dump(co_occurrence_map, f, indent=2)
+
+# 4c. Auto-resolve missing or short routes
+print("🧠 Enriching routes using co-occurrence and platform memory...")
+memory = load_co_occurrence_map()
+transition_map, bridge_nodes = detect_cross_platform_bridges(signals, nodes)
+
+for signal in signals:
+    if not signal.route or len(signal.route) <= 1:
+        old_id = signal.id
+        resolve_missing_route(signal, memory, transition_map, bridge_nodes)
+        reinforce_cross_platform_bridges(signal, transition_map, bridge_nodes)  # ✅ New
+        if signal.route and len(signal.route) > 1:
+            print(f"⚙️ Final enriched route for {old_id} → {signal.route}")
+        else:
+            print(f"❌ Still incomplete: {old_id}")
 
 # 5. Build graph
 graph = build_graph(nodes, signals)
@@ -99,6 +130,7 @@ def plot_entropy_over_time(signals):
         plt.tight_layout()
         plt.savefig("entropy_over_time.png")
         print("📈 Entropy trend saved as entropy_over_time.png")
+
     except Exception as e:
         print(f"⚠️ Failed to plot entropy over time: {e}")
 
@@ -107,6 +139,12 @@ plot_entropy_over_time(signals)
 # 10. Power & narrative analysis
 power_scores = compute_power_index(graph)
 calculate_truth_drift(signals)
+# ⚙️ Patch: Reassign Reddit signal source to actual final node in route
+for signal in signals:
+    if signal.source == "reddit" and signal.route and len(signal.route) > 1:
+        old_source = signal.source
+        signal.source = signal.route[-1]
+        print(f"🔄 Reassigned Reddit signal source: {signal.id} → {signal.source}")
 compute_narrative_stability_index(graph, signals, power_scores)
 
 # 11. Subreddit profile charts

@@ -24,3 +24,4 @@ class Signal:
     subreddit: Optional[str] = None
     is_recursive: bool = False
     recursive_depth: int = 0
+    seed_node: Optional[str] = None

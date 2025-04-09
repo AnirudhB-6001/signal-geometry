@@ -1,5 +1,3 @@
-# src/signal_collector.py
-
 import praw
 from datetime import datetime
 from typing import List
@@ -34,8 +32,7 @@ def match_route(post_title: str, subreddit: str) -> List[str]:
     }
     for keyword, node_id in influencers.items():
         if keyword in title_lower:
-            route.append("user_2")
-            route.append(node_id)
+            route += ["user_2", node_id]
             return route
 
     # Institution matches
@@ -48,8 +45,7 @@ def match_route(post_title: str, subreddit: str) -> List[str]:
     }
     for keyword, node_id in institutions.items():
         if keyword in title_lower:
-            route.append("user_2")
-            route.append(node_id)
+            route += ["user_2", node_id]
             return route
 
     # Subreddit-based logic
@@ -59,13 +55,11 @@ def match_route(post_title: str, subreddit: str) -> List[str]:
         "politics": "trump"
     }
     if subreddit.lower() in subreddit_map:
-        route.append("user_2")
-        route.append(subreddit_map[subreddit.lower()])
-    else:
-        route.append("user_2")
-        route.append("elon_musk")  # fallback
+        route += ["user_2", subreddit_map[subreddit.lower()]]
+        return route
 
-    return route
+    # No downstream node matched
+    return route  # Only 2 hops: reddit_thread → user_1
 
 def collect_signals_from_reddit(subreddits: List[str], limit=5) -> List[Signal]:
     reddit = praw.Reddit(
@@ -85,17 +79,22 @@ def collect_signals_from_reddit(subreddits: List[str], limit=5) -> List[Signal]:
             title = post.title
             route = match_route(title, subreddit)
 
+            if len(route) < 4:
+                print(f"⚠️ Incomplete route for Reddit signal {subreddit}_{post.id}. Skipping downstream hops.")
+
             signal = Signal(
                 id=f"{subreddit}_{post.id}",
                 content=title,
                 title=title,
-                source=subreddit,
+                source="reddit",
                 timestamp=datetime.utcfromtimestamp(post.created_utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
                 entropy=entropy,
                 velocity=velocity,
                 impact=round(min(1.0, (post.upvote_ratio or 0.8)), 2),
                 route=route,
-                subreddit=subreddit
+                node="reddit_thread",
+                subreddit=subreddit,
+                is_recursive=False
             )
             signals.append(signal)
 
