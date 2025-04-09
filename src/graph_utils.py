@@ -120,6 +120,10 @@ def compute_power_index(graph):
     between = nx.betweenness_centrality(graph)
     close = nx.closeness_centrality(graph)
 
+    print("\n🔍 DEGREE DIAGNOSTICS:")
+    for node in graph.nodes():
+        print(f"{node}: in={in_deg.get(node, 0)}, out={out_deg.get(node, 0)}, between={round(between.get(node, 0), 4)}, close={round(close.get(node, 0), 4)}")
+
     scores = {}
     for node in graph.nodes():
         score = (
